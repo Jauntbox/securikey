@@ -1,0 +1,29 @@
+<head>
+  <title>keypress_test</title>
+</head>
+
+<body>
+  <h1>Welcome to Meteor!</h1>
+
+  {{> hello}}
+  {{> inputArea1}}
+  {{> inputArea2}}
+</body>
+
+<template name="hello">
+  <button>Click Me</button>
+  <p>You've pressed the button {{counter}} times.</p>
+</template>
+
+
+<template name="inputArea1">
+  <textarea rows="4" cols="50">
+Person 1 - type your example text here
+</textarea>
+</template>
+
+<template name="inputArea2">
+  <textarea rows="4" cols="50">
+Person 2 - type your example text here
+</textarea>
+</template>
