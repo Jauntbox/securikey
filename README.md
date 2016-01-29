@@ -7,3 +7,4 @@ Instructions
 * Type some text into the two text boxes to see how likely it is that the two samples come from the same user (you should use the same string of text for both typing samples).
 * Run the Python script via ``python keypress_test.py``. It will keep running and watch the database for changes, printing out new entries as soon as they're added.
 * If you'd like to clear the database (eg. to try a different text sample), then exit the app and type ``meteor reset`` to clear the data from the database and then restart the app.
+* You can run the standalone responsive histogram page by starting a local webserver, e.g. with `python -m SimpleHTTPServer 8001` and then opening a web browser to `http://localhost:8001/` and navigating to the file, `private/responsive_histogram_dual.html`
