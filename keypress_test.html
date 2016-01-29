@@ -3,18 +3,38 @@
 </head>
 
 <body>
-  <h1>Welcome to Meteor!</h1>
+  <h1>Welcome to Securikey, enter your typing samples below</h1>
 
   {{> hello}}
   {{> inputArea1}}
   {{> inputArea2}}
+  {{> compare}}
+
+  <div class="chart"></div>
+	<script src="//d3js.org/d3.v3.min.js"></script>
+	<script>
+
+	var data = [4, 8, 15, 16, 23, 42];
+
+	var x = d3.scale.linear()
+	    .domain([0, d3.max(data)])
+	    .range([0, 420]);
+
+	d3.select(".chart")
+	  .selectAll("div")
+	    .data(data)
+	  .enter().append("div")
+	    .style("width", function(d) { return x(d) + "px"; })
+	    .text(function(d) { return d; });
+
+	</script>
+
 </body>
 
 <template name="hello">
   <button>Click Me</button>
   <p>You've pressed the button {{counter}} times.</p>
 </template>
-
 
 <template name="inputArea1">
   <textarea rows="4" cols="50">
@@ -26,4 +46,9 @@ Person 1 - type your example text here
   <textarea rows="4" cols="50">
 Person 2 - type your example text here
 </textarea>
+<p></p>
+</template>
+
+<template name="compare">
+  <button>Compare</button>
 </template>

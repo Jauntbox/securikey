@@ -17,6 +17,7 @@ var typingData = new Array();
 
 TypingDatabase1 = new Meteor.Collection('TypingDatabase1');
 TypingDatabase2 = new Meteor.Collection('TypingDatabase2');
+Results = new Meteor.Collection('Results');
 
 //listener = new Keypress.Listener();
 
@@ -79,6 +80,12 @@ if (Meteor.isClient) {
     TypingDatabase2.insert(new keyData("keydown", event.which, event.timeStamp));
   }
 });
+
+  Template.compare.events({
+    'click button': function () {
+      // increment the counter when button is clicked
+    }
+  });
 }
 
 if (Meteor.isServer) {

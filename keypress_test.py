@@ -1,7 +1,9 @@
 '''Script that will read from the Meteor database that stores all the keypress data and perform some analytics on it which will be pushed to the database to be read by the Meteor app'''
 import pymongo
+from pymongo.cursor import CursorType
 import numpy as np
 import scipy.stats
+import time
 
 client = pymongo.MongoClient('mongodb://127.0.0.1:3001/meteor')
 print client.database_names()
@@ -54,14 +56,14 @@ print dwell_times2
 
 #Now compare the two distributions. 
 
-#The first metric we'll use is a normalize variance between the two typing samples:
+#The first metric we'll use is a normalized variance between the two typing samples:
 avg_ttest = 0.0
 avg_pval = 0.0
 count = 0
 n_lower_limit = 3
 for key in dwell_times1:
 	#Ignore spaces?
-	if((len(dwell_times1[key]) > n_lower_limit and len(dwell_times2[key]) > n_lower_limit) and key != 32000):
+	if key in dwell_times2 and ((len(dwell_times1[key]) > n_lower_limit and len(dwell_times2[key]) > n_lower_limit) and key != 32000):
 		count += 1
 		[stat, pval] = scipy.stats.ttest_ind(dwell_times1[key],dwell_times2[key],equal_var=False)
 		#print key, stat, pval
@@ -74,3 +76,63 @@ print "Results: ", avg_ttest, avg_pval
 
 [stat, pval] = scipy.stats.ttest_ind(dwell_times1_raw,dwell_times2_raw,equal_var=False)
 print "Results (just one t-test): ", stat, pval
+
+#Another way we can compare things is to make a vector out of the mean dwell times for each
+#key and then compare the two vectors with a chi-squared test. Not sure what to do about the
+#keys that are only pressed once (maybe best to ignore them for now since we can't calculate a 
+#standard deviation for them)
+chi_squared = 0.0
+count = 0
+for key in dwell_times1:
+	if key in dwell_times2 and ((len(dwell_times1[key]) > n_lower_limit and len(dwell_times2[key]) > n_lower_limit) and key != 32000):
+		count += 1
+		for item in dwell_times2[key]:
+			#chi_squared += (np.mean(dwell_times2[key]) - np.mean(dwell_times1[key]))**2/((np.std(dwell_times1[key]) + np.std(dwell_times2[key]))/2.0)
+			chi_squared += (np.mean(dwell_times2[key]) - np.mean(dwell_times1[key]))**2/((np.mean(dwell_times1[key]) + np.mean(dwell_times2[key]))/2.0)
+
+print ""
+print "Normalized chi-squared: ",chi_squared/count
+
+#Another way is to just compute the euclidean distance (and cosine) between the two vectors
+euclidean_distance = 0.0
+dot_product = 0.0
+norm1 = 0.0
+norm2 = 0.0
+count = 0
+for key in dwell_times1:
+	if key in dwell_times2 and ((len(dwell_times1[key]) > n_lower_limit and len(dwell_times2[key]) > n_lower_limit) and key != 32000):
+		count += 1
+		euclidean_distance += (np.mean(dwell_times2[key]) - np.mean(dwell_times1[key]))**2
+		norm1 += np.mean(dwell_times1[key])**2
+		norm2 += np.mean(dwell_times2[key])**2
+		dot_product += np.mean(dwell_times2[key])*np.mean(dwell_times1[key])
+
+euclidean_distance = np.sqrt(euclidean_distance)
+norm1 = np.sqrt(norm1)
+norm2 = np.sqrt(norm2)
+print ""
+print "Euclidean distance, norm1, norm2: ",euclidean_distance, norm1, norm2
+print "Euclidean distance as a fraction of the average norm: ", euclidean_distance/np.mean([norm1,norm2])
+print "Dot product: ", dot_product
+print "Cosine distance: ", dot_product/(norm1*norm2)
+print "Angle/pi: ", np.arccos(dot_product/(norm1*norm2))/np.pi
+
+oplog = client.local.oplog.rs
+last_ts = oplog.find().sort('$natural', -1)[0]['ts'];
+
+while True:
+	query = { 'ts': { '$gt': last_ts } }
+  	cursor = oplog.find(query, cursor_type = CursorType.TAILABLE_AWAIT)
+  	#cursor.add_option(_QUERY_OPTIONS['oplog_replay'])
+
+	try:
+		while cursor.alive:
+			try:
+				post = cursor.next()
+				print post
+				print post['ns']
+				print post['o']['keyCode'] + " " + str(post['o']['timeStamp'])
+			except StopIteration:
+				time.sleep(1.0)
+	finally:
+		cursor.close()
