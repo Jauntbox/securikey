@@ -13,6 +13,7 @@ print client.meteor.collection_names(include_system_collections=False)
 
 keydata1 = client.meteor['TypingDatabase1']
 keydata2 = client.meteor['TypingDatabase2']
+results = client.meteor['Results']
 #print keydata1.find_one()
 #print keydata1.count()
 #for item in keydata1.find():
@@ -26,7 +27,9 @@ for item in keydata1.find({'keyCode':'keydown'}).sort('timeStamp',1):
 	press_event = item
 	#For each entry, we want to find the first instance when that key was released:
 	unpress_event = keydata1.find_one({'eventType':press_event['eventType'], 'keyCode':'keyup', 'timeStamp':{'$gt':press_event['timeStamp']}}, sort=[('timeStamp',1)])
-	#print unpress_event, unpress_event['timeStamp'], press_event['timeStamp'], unpress_event['timeStamp'] - press_event['timeStamp']
+
+	#We need to be careful about recording Tab keys because if someone is typing in the first text box and types a Tab, then the first text box will record the keydown event but then context will switch to the second text box so the second text box registers the keyup event. One way around this would be to just not put tab events into the database in the first place (let's try that first)
+
 	dwell_time = unpress_event['timeStamp'] - press_event['timeStamp']
 	dwell_times1_raw.append(dwell_time)
 
@@ -69,13 +72,15 @@ for key in dwell_times1:
 		#print key, stat, pval
 		avg_ttest += stat
 		avg_pval += pval
-avg_ttest /= count
-avg_pval /= count
-print ""
-print "Results: ", avg_ttest, avg_pval
 
-[stat, pval] = scipy.stats.ttest_ind(dwell_times1_raw,dwell_times2_raw,equal_var=False)
-print "Results (just one t-test): ", stat, pval
+if count > 0:
+	avg_ttest /= count
+	avg_pval /= count
+	print ""
+	print "Results: ", avg_ttest, avg_pval
+
+	[stat, pval] = scipy.stats.ttest_ind(dwell_times1_raw,dwell_times2_raw,equal_var=False)
+	print "Results (just one t-test): ", stat, pval
 
 #Another way we can compare things is to make a vector out of the mean dwell times for each
 #key and then compare the two vectors with a chi-squared test. Not sure what to do about the
@@ -90,8 +95,9 @@ for key in dwell_times1:
 			#chi_squared += (np.mean(dwell_times2[key]) - np.mean(dwell_times1[key]))**2/((np.std(dwell_times1[key]) + np.std(dwell_times2[key]))/2.0)
 			chi_squared += (np.mean(dwell_times2[key]) - np.mean(dwell_times1[key]))**2/((np.mean(dwell_times1[key]) + np.mean(dwell_times2[key]))/2.0)
 
-print ""
-print "Normalized chi-squared: ",chi_squared/count
+if count > 0:
+	print ""
+	print "Normalized chi-squared: ",chi_squared/count
 
 #Another way is to just compute the euclidean distance (and cosine) between the two vectors
 euclidean_distance = 0.0
@@ -108,17 +114,19 @@ for key in dwell_times1:
 		dot_product += np.mean(dwell_times2[key])*np.mean(dwell_times1[key])
 
 euclidean_distance = np.sqrt(euclidean_distance)
-norm1 = np.sqrt(norm1)
-norm2 = np.sqrt(norm2)
-print ""
-print "Euclidean distance, norm1, norm2: ",euclidean_distance, norm1, norm2
-print "Euclidean distance as a fraction of the average norm: ", euclidean_distance/np.mean([norm1,norm2])
-print "Dot product: ", dot_product
-print "Cosine distance: ", dot_product/(norm1*norm2)
-print "Angle/pi: ", np.arccos(dot_product/(norm1*norm2))/np.pi
+if norm1 > 0 and norm2 > 0:
+	norm1 = np.sqrt(norm1)
+	norm2 = np.sqrt(norm2)
+	print ""
+	print "Euclidean distance, norm1, norm2: ",euclidean_distance, norm1, norm2
+	print "Euclidean distance as a fraction of the average norm: ", euclidean_distance/np.mean([norm1,norm2])
+	print "Dot product: ", dot_product
+	print "Cosine distance: ", dot_product/(norm1*norm2)
+	print "Angle/pi: ", np.arccos(dot_product/(norm1*norm2))/np.pi
 
 oplog = client.local.oplog.rs
 last_ts = oplog.find().sort('$natural', -1)[0]['ts'];
+num_keys = 0
 
 while True:
 	query = { 'ts': { '$gt': last_ts } }
@@ -128,10 +136,16 @@ while True:
 	try:
 		while cursor.alive:
 			try:
+				#Make sure post is from one of the typing databases before doing anything with it
 				post = cursor.next()
-				print post
-				print post['ns']
-				print post['o']['keyCode'] + " " + str(post['o']['timeStamp'])
+				if post['ns'] == 'meteor.TypingDatabase1' or post['ns'] == 'meteor.TypingDatabase2':
+					num_keys += 1
+					print post
+					print post['ns']
+					print post['o']['keyCode'] + " " + str(post['o']['timeStamp'])
+					print num_keys
+					results.insert_one({'num_keys':num_keys})
+					#results.update({'num_keys':num_keys})
 			except StopIteration:
 				time.sleep(1.0)
 	finally:

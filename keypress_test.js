@@ -49,8 +49,10 @@ if (Meteor.isClient) {
   'keyup': function(event) {
     //event.preventDefault();
     console.log("KEYUP" + " " + event.which + " " + event.timeStamp);
-    typingData.push(new keyData("keyup", event.which, event.timeStamp));
-    TypingDatabase1.insert(new keyData("keyup", event.which, event.timeStamp));
+    if(event.which !== 9){
+      typingData.push(new keyData("keyup", event.which, event.timeStamp));
+      TypingDatabase1.insert(new keyData("keyup", event.which, event.timeStamp));
+    }
   }
 });
 
@@ -58,8 +60,10 @@ if (Meteor.isClient) {
   'keydown': function(event) {
     //event.preventDefault();
     console.log("KEYDOWN" + " " + event.which + " " + event.timeStamp);
-    typingData.push(new keyData("keydown", event.which, event.timeStamp));
-    TypingDatabase1.insert(new keyData("keydown", event.which, event.timeStamp));
+    if(event.which !== 9){
+      typingData.push(new keyData("keydown", event.which, event.timeStamp));
+      TypingDatabase1.insert(new keyData("keydown", event.which, event.timeStamp));
+    }
   }
 });
 
@@ -67,8 +71,10 @@ if (Meteor.isClient) {
   'keyup': function(event) {
     //event.preventDefault();
     console.log("KEYUP" + " " + event.which + " " + event.timeStamp);
-    typingData.push(new keyData("keyup", event.which, event.timeStamp));
-    TypingDatabase2.insert(new keyData("keyup", event.which, event.timeStamp));
+    if(event.which !== 9){
+      typingData.push(new keyData("keyup", event.which, event.timeStamp));
+      TypingDatabase2.insert(new keyData("keyup", event.which, event.timeStamp));
+    }
   }
 });
 
@@ -76,14 +82,20 @@ if (Meteor.isClient) {
   'keydown': function(event) {
     //event.preventDefault();
     console.log("KEYDOWN" + " " + event.which + " " + event.timeStamp);
-    typingData.push(new keyData("keydown", event.which, event.timeStamp));
-    TypingDatabase2.insert(new keyData("keydown", event.which, event.timeStamp));
+    //Don't add Tab presses to the database since it also switches text boxes (the keydown
+    // and keyup events will be in different typing databases)
+    if(event.which !== 9){
+      typingData.push(new keyData("keydown", event.which, event.timeStamp));
+      TypingDatabase2.insert(new keyData("keydown", event.which, event.timeStamp));
+    }
   }
 });
 
   Template.compare.events({
     'click button': function () {
       // increment the counter when button is clicked
+      // console.log(Results.findOne());
+      console.log(Results.find().fetch());
     }
   });
 }
