@@ -37,6 +37,21 @@ if (Meteor.isClient) {
   //Make a results variable that compares the two typing samples
   Session.setDefault('similarity', 0.0);
 
+  //Try and listen to results database for updates from the Python script
+  Results.find().observeChanges({
+    added: function(){
+      console.log('Document added to Results database');
+      Session.set('similarity', Results.find().fetch()[0]['cosine_distance'].toFixed(3));
+    },
+    changed: function(){
+      console.log('Document changed in Results database');
+      Session.set('similarity', Results.find().fetch()[0]['cosine_distance'].toFixed(3));
+    },
+    removed: function(){
+      console.log('Document removed from Results database');
+    }
+  });
+
   Template.hello.helpers({
     counter: function () {
       return Session.get('counter');
@@ -117,11 +132,6 @@ if (Meteor.isClient) {
 
   Template.compare.helpers({
     similarity: function () {
-      //This seems to work as far as reading from the results database in real time, but 
-      //is likely not the best way to do this...
-      if(Results.find().count() > 0){
-        Session.set('similarity', Results.find().fetch()[0]['cosine_distance'].toFixed(3));
-      }
       return Session.get('similarity');
     }
   });
