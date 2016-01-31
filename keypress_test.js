@@ -18,6 +18,7 @@ var typingData = new Array();
 TypingDatabase1 = new Meteor.Collection('TypingDatabase1');
 TypingDatabase2 = new Meteor.Collection('TypingDatabase2');
 Results = new Meteor.Collection('Results');
+Tasks = new Meteor.Collection('Tasks');
 
 //listener = new Keypress.Listener();
 
@@ -28,8 +29,13 @@ listener.simple_combo("k", function() {
 */
 
 if (Meteor.isClient) {
+  Meteor.subscribe("tasks");
+
   // counter starts at 0
   Session.setDefault('counter', 0);
+
+  //Make a results variable that compares the two typing samples
+  Session.setDefault('similarity', 0.0);
 
   Template.hello.helpers({
     counter: function () {
@@ -95,7 +101,28 @@ if (Meteor.isClient) {
     'click button': function () {
       // increment the counter when button is clicked
       // console.log(Results.findOne());
-      console.log(Results.find().fetch());
+      Tasks.insert({"type":"compareClick","timeStamp":event.timeStamp})
+
+      //It doesn't work to update things here because the calculation from the Python script
+      //won't be finished by the time we look in the database for the result below. Instead,
+      //we want some way of automatically reading from the database and updating the
+      //similarity score with the value from the database in real time.
+
+      //result = Results.find().fetch();
+      //console.log(result);
+      //Session.set('counter', result[0]['num_keys']);
+      //Session.set('similarity', result[0]['cosine_distance'].toFixed(3));
+    }
+  });
+
+  Template.compare.helpers({
+    similarity: function () {
+      //This seems to work as far as reading from the results database in real time, but 
+      //is likely not the best way to do this...
+      if(Results.find().count() > 0){
+        Session.set('similarity', Results.find().fetch()[0]['cosine_distance'].toFixed(3));
+      }
+      return Session.get('similarity');
     }
   });
 }
@@ -105,5 +132,9 @@ if (Meteor.isServer) {
     // code to run on server at startup
     console.log('Hello on server startup (from server)');
     console.log(JSON.stringify(typingData));
+  });
+
+  Meteor.publish("tasks", function () {
+    return Tasks.find();
   });
 }
