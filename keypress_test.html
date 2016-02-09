@@ -1,36 +1,50 @@
 <head>
-  <title>keypress_test</title>
+	<title>keypress_test</title>
 </head>
 
 <body>
-  <h1>Welcome to Securikey, enter your typing samples below</h1>
+	<h1>Welcome to Securikey, enter your typing samples below</h1>
 
-  {{> hello}}
-  {{> inputArea1}}
-  {{> inputArea2}}
-  {{> compare}}
+	<!-- {{> hello}} -->
+	{{> histogram}}
+	{{> inputArea1}}
+	{{> inputArea2}}
+	{{> compare}} 
+	{{> reset}}
 
 </body>
 
 <template name="hello">
-  <button>Click Me</button>
-  <p>You've pressed the button {{counter}} times.</p>
+	<button>Click Me</button>
+	<p>You've pressed the button {{counter}} times.</p>
 </template>
 
 <template name="inputArea1">
-  <textarea rows="4" cols="50">
-Person 1 - type your example text here
-</textarea>
+	<textarea rows="4" cols="50">
+  		{{textBoxMsg1}}
+	</textarea>
 </template>
 
 <template name="inputArea2">
-  <textarea rows="4" cols="50">
-Person 2 - type your example text here
-</textarea>
-<p></p>
+	<textarea rows="4" cols="50">
+		{{textBoxMsg2}}
+	</textarea>
+	<p></p>
+</template>
+
+<template name="reset">
+	<button>Reset</button>
 </template>
 
 <template name="compare">
-  <button>Compare</button>
-  <p>Text similarity score: {{similarity}}</p>
+	<button>Compare</button>
+	<p>Text similarity score: {{similarity}}</p>
+</template>
+
+<template name="histogram">
+	<p></p>
+  <svg id="histogramSVG">   
+    <g><text x="50" y="20">Here is some text</text></g>
+  </svg>
+  <p></p>
 </template>

@@ -13,12 +13,19 @@ keyData = function(code,type,time){
   this.timeStamp = time;
 };
 
+var plotDataCollection = new Mongo.Collection("PlotData")
+var data = [{year: 2006, books: 54},
+  {year: 2007, books: 43},
+  {year: 2008, books: 41},
+  {year: 2009, books: 44},
+  {year: 2010, books: 35}];
+
 var typingData = new Array();
 
-TypingDatabase1 = new Meteor.Collection('TypingDatabase1');
-TypingDatabase2 = new Meteor.Collection('TypingDatabase2');
-Results = new Meteor.Collection('Results');
-Tasks = new Meteor.Collection('Tasks');
+TypingDatabase1 = new Mongo.Collection('TypingDatabase1');
+TypingDatabase2 = new Mongo.Collection('TypingDatabase2');
+Results = new Mongo.Collection('Results');
+Tasks = new Mongo.Collection('Tasks');
 
 //listener = new Keypress.Listener();
 
@@ -37,18 +44,22 @@ if (Meteor.isClient) {
   //Make a results variable that compares the two typing samples
   Session.setDefault('similarity', 0.0);
 
+  Session.setDefault('textBoxMsg1', 'Person 1 - type your example text here');
+  Session.setDefault('textBoxMsg2', 'Person 2 - type your example text here');
+
   //Try and listen to results database for updates from the Python script
   Results.find().observeChanges({
     added: function(){
-      console.log('Document added to Results database');
-      Session.set('similarity', Results.find().fetch()[0]['cosine_distance'].toFixed(3));
+      console.log('Document added to Results database:', Results.find().fetch()[0]);
+      Session.set('similarity', Results.find().fetch()[0]['euclidean_distance_score'].toFixed(3));
     },
     changed: function(){
       console.log('Document changed in Results database');
-      Session.set('similarity', Results.find().fetch()[0]['cosine_distance'].toFixed(3));
+      Session.set('similarity', Results.find().fetch()[0]['euclidean_distance_score'].toFixed(3));
     },
     removed: function(){
       console.log('Document removed from Results database');
+      Session.set('similarity', 0.0);
     }
   });
 
@@ -135,6 +146,79 @@ if (Meteor.isClient) {
       return Session.get('similarity');
     }
   });
+
+  Template.reset.events({
+    'click button': function () {
+      Meteor.call('resetDatabases');
+      //Also clear the text boxes
+      Session.set('textBoxMsg1', 'Person 1 - type your example text here');
+      Session.set('textBoxMsg2', 'Person 2 - type your example text here');
+    }
+  });
+
+  //trying to get reactive updating here (like http://mhyfritz.com/blog/2014/08/16/reactive-d3-meteor/)
+  //Template.histogram.rendered = function(){
+  Template.histogram.onRendered(function(){
+    //var self = this;
+
+    var histogramSVG = d3.select("#histogramSVG");
+
+    var drawGraph = function(plotData){
+      //var svgClick = d3.select("#clickArea");
+
+      console.log('Inside onRendered');
+      var localData = [];
+      var cursor = plotData.find();
+      cursor.forEach(function(item){
+        localData.push(item);
+        console.log(item);
+      })
+      console.log('localData: ',localData);
+
+      var barWidth = 40;
+      var width = (barWidth + 10) * localData.length;
+      var height = 200;
+
+      var x = d3.scale.linear().domain([0, localData.length]).range([0, width]);
+      var y = d3.scale.linear().domain([0, d3.max(localData, function(datum) { return datum.books; })]).
+        rangeRound([0, height]);
+
+      histogramSVG.selectAll("rect").
+          data(localData).
+          enter().
+          append("svg:rect").
+          attr("x", function(datum, index) { return x(index); }).
+          attr("y", function(datum) { return height - y(datum.books); }).
+          attr("height", function(datum) { return y(datum.books); }).
+          attr("width", barWidth).
+          attr("fill", "#2d578b").
+          on("click", function(d,i){ 
+            console.log("rect, id:",i," d:",d);
+            d3.event.stopPropagation();
+          });
+
+      histogramSVG.selectAll("rect").
+        data(localData).
+        transition().duration(300).
+        attr("y", function(datum) { return height - y(datum.books); }).
+        attr("height", function(datum) { return y(datum.books); });
+      };
+
+      histogramSVG.on("click", function(){
+        console.log("SVG clicked!");
+      });
+
+      plotDataCollection.find().observe({
+        //aha, we just need to call the function where we make the circles update themselves
+        //changed: _.partial(drawCircles, true) //does work (why?)
+        changed: function() {
+          console.log('calling drawGraph:');
+          drawGraph(plotDataCollection);
+        }
+      })
+    //})
+  });
+
 }
 
 if (Meteor.isServer) {
@@ -142,7 +226,38 @@ if (Meteor.isServer) {
     // code to run on server at startup
     console.log('Hello on server startup (from server)');
     console.log(JSON.stringify(typingData));
+
+    plotDataCollection.remove({});
+    console.log(plotDataCollection.find().count());
+
+    if (plotDataCollection.find().count() === 0) {
+      data.forEach(function(entry) {
+        plotDataCollection.insert(entry);
+        console.log(entry);
+      });
+
+      console.log('in here',plotDataCollection.findOne());
+    }
+
+    return Meteor.methods({
+      resetDatabases: function() {
+        TypingDatabase1.remove({});
+        TypingDatabase2.remove({});
+        Results.remove({});
+        Tasks.remove({});
+      }
+    });
+
   });
+
+  //Auto-update database to get reactive changes into the histogram
+  /*Meteor.setInterval(function () {
+      //console.log(plotDataCollection.findOne({year: 2009}));
+      //console.log(plotDataCollection.findOne({year: 2009})['_id']);
+      var num = plotDataCollection.findOne({year: 2009})['books'];
+
+      plotDataCollection.update({year: 2009}, {$set: {'books': num+1}});
+    }, 2000);*/
 
   Meteor.publish("tasks", function () {
     return Tasks.find();

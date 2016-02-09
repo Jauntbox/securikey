@@ -66,7 +66,7 @@ count = 0
 n_lower_limit = 3
 for key in dwell_times1:
 	#Ignore spaces?
-	if key in dwell_times2 and ((len(dwell_times1[key]) > n_lower_limit and len(dwell_times2[key]) > n_lower_limit) and key != 32000):
+	if key in dwell_times2 and ((len(dwell_times1[key]) >= n_lower_limit and len(dwell_times2[key]) >= n_lower_limit) and key != 32000):
 		count += 1
 		[stat, pval] = scipy.stats.ttest_ind(dwell_times1[key],dwell_times2[key],equal_var=False)
 		#print key, stat, pval
@@ -89,7 +89,7 @@ if count > 0:
 chi_squared = 0.0
 count = 0
 for key in dwell_times1:
-	if key in dwell_times2 and ((len(dwell_times1[key]) > n_lower_limit and len(dwell_times2[key]) > n_lower_limit) and key != 32000):
+	if key in dwell_times2 and ((len(dwell_times1[key]) >= n_lower_limit and len(dwell_times2[key]) >= n_lower_limit) and key != 32000):
 		count += 1
 		for item in dwell_times2[key]:
 			#chi_squared += (np.mean(dwell_times2[key]) - np.mean(dwell_times1[key]))**2/((np.std(dwell_times1[key]) + np.std(dwell_times2[key]))/2.0)
@@ -106,7 +106,7 @@ norm1 = 0.0
 norm2 = 0.0
 count = 0
 for key in dwell_times1:
-	if key in dwell_times2 and ((len(dwell_times1[key]) > n_lower_limit and len(dwell_times2[key]) > n_lower_limit) and key != 32000):
+	if key in dwell_times2 and ((len(dwell_times1[key]) >= n_lower_limit and len(dwell_times2[key]) >= n_lower_limit) and key != 32000):
 		count += 1
 		euclidean_distance += (np.mean(dwell_times2[key]) - np.mean(dwell_times1[key]))**2
 		norm1 += np.mean(dwell_times1[key])**2
@@ -170,13 +170,14 @@ Returns:
 '''
 def distance_comparison(dict1, dict2, min_threshold):
 	euclidean_distance = 0.0
+	euclidean_distance_score = 0.0
 	cosine_distance = 0.0
 	dot_product = 0.0
 	norm1 = 0.0
 	norm2 = 0.0
 	count = 0
 	for key in dict1:
-		if key in dict2 and ((len(dict1[key]) > min_threshold and len(dict2[key]) > min_threshold)):
+		if key in dict2 and ((len(dict1[key]) >= min_threshold and len(dict2[key]) >= min_threshold)):
 			count += 1
 			euclidean_distance += (np.mean(dict2[key]) - np.mean(dict1[key]))**2
 			norm1 += np.mean(dict1[key])**2
@@ -188,8 +189,9 @@ def distance_comparison(dict1, dict2, min_threshold):
 		norm1 = np.sqrt(norm1)
 		norm2 = np.sqrt(norm2)
 		cosine_distance = dot_product/(norm1*norm2)
+		euclidean_distance_score = 1-euclidean_distance/np.mean([norm1,norm2])
 
-	return [euclidean_distance, cosine_distance]
+	return [euclidean_distance_score, cosine_distance]
 
 
 while True:
@@ -202,20 +204,20 @@ while True:
 			try:
 				post = cursor.next()
 
-				#If the database update corresponds to the "compare" button being pressed then recompute the comparison data
-				if post['ns'] == 'meteor.Tasks':
+				#If the database update corresponds to the "compare" button being pressed then recompute the comparison data. It looks like if an element is deleted from the database then the delete action will also show up in the oplog so we also want to check if the post here corresponds to an insert (post['op'] == 'i') as opposed to a delete (post['op'] == 'd')
+				if post['ns'] == 'meteor.Tasks' and post['op'] == 'i':
 					print "Compare Button pressed!"
 
 					dwell_times1 = generate_dwell_times(keydata1)
 					dwell_times2 = generate_dwell_times(keydata2)
-					[euclidean_distance, cosine_distance] = distance_comparison(dwell_times1, dwell_times2, 3)
+					[euclidean_distance_score, cosine_distance] = distance_comparison(dwell_times1, dwell_times2, 3)
 
 					#Insert a document if the database is empty
 					if(results.count() == 0):
-						results.insert_one({'num_keys':num_keys, 'euclidean_distance':euclidean_distance, 'cosine_distance':cosine_distance})
+						results.insert_one({'num_keys':num_keys, 'euclidean_distance_score':euclidean_distance_score, 'cosine_distance':cosine_distance})
 					#Otherwise update the document
 					elif(results.count() == 1):
-						results.update_one({}, {"$set":{"num_keys":num_keys, 'euclidean_distance':euclidean_distance, 'cosine_distance':cosine_distance}}, upsert=False)
+						results.update_one({}, {"$set":{"num_keys":num_keys, 'euclidean_distance_score':euclidean_distance_score, 'cosine_distance':cosine_distance}}, upsert=False)
 						#results.update_one({'num_keys':num_keys-1}, {"$inc":{"num_keys":1}}, upsert=False)
 					#There should not be more than one document in the database
 					else:
