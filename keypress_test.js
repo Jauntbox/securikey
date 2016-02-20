@@ -1,5 +1,3 @@
-//var listener = new Keypress.Listener();
-
 var test = 3;
 console.log(test);
 
@@ -22,18 +20,177 @@ var data = [{year: 2006, books: 54},
 
 var typingData = new Array();
 
+//Data from responsive_histogram_dual
+var dwell_times = [];
+var press_times = {};
+var dwell_times2 = [];
+var press_times2 = {};
+
 TypingDatabase1 = new Mongo.Collection('TypingDatabase1');
 TypingDatabase2 = new Mongo.Collection('TypingDatabase2');
 Results = new Mongo.Collection('Results');
 Tasks = new Mongo.Collection('Tasks');
 
-//listener = new Keypress.Listener();
+function init_histogram(){
+  $("#histogramSVG").empty()
+  var svg = d3.select("#histogramSVG");
+  var width = svg.node().getBoundingClientRect().width;
+  var height = svg.node().getBoundingClientRect().height/2;
+  var histogram = d3.layout.histogram().bins(12).range([30,150])([]);
 
-/*
-listener.simple_combo("k", function() {
-    console.log("You pressed k");
-});
-*/
+  var x = d3.scale.ordinal()
+      .domain(histogram.map(function(d) { return d.x; }))
+      .rangeRoundBands([0, width]);
+   
+  var y = d3.scale.linear()
+      .domain([0, d3.max(histogram.map(function(d) { return d.y; }))])
+      .range([0, height]);
+
+  var xAxis = d3.svg.axis()
+        .scale(x)
+        .tickFormat(d3.format(",.0f"))
+        .orient("bottom")
+        .tickSize([5]).tickSubdivide(true);
+
+  var yAxis = d3.svg.axis()
+      .scale(y)
+      .tickFormat(d3.format(",.0f"))
+      .orient("left")
+      .tickSubdivide(true);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + (height)  + ")")
+      .call(xAxis);
+}
+
+function draw_histogram(pos_data, neg_data){
+
+  //Clear the histogram so it updates correctly each time data is added
+  $("#histogramSVG").empty()
+
+  var svg = d3.select("#histogramSVG");
+  var width = svg.node().getBoundingClientRect().width;
+  var height = svg.node().getBoundingClientRect().height/2;
+
+  //var width = 400;
+  //var height = 150;  // We don't want the height to be responsive.
+  var midPadding = 20; //padding between upper and lower histogram bars
+
+  var histogram = d3.layout.histogram().bins(12).range([30,150])(pos_data);
+  var neg_histogram = d3.layout.histogram().bins(12).range([30,150])(neg_data);
+   
+  var x = d3.scale.ordinal()
+      .domain(histogram.map(function(d) { return d.x; }))
+      .rangeRoundBands([0, width]);
+
+  var nx = d3.scale.ordinal()
+      .domain(neg_histogram.map(function(d) { return d.x; }))
+      .rangeRoundBands([0, width]);
+   
+  var y = d3.scale.linear()
+      .domain([0, d3.max(histogram.map(function(d) { return d.y; }))])
+      .range([0, height]);
+
+  var ny = d3.scale.linear()
+      .domain([0, d3.max(neg_histogram.map(function(d) { return d.y; }))])
+      .range([0, height]);
+
+  var xAxis = d3.svg.axis()
+        .scale(x)
+        .tickFormat(d3.format(",.0f"))
+        .orient("bottom")
+        .tickSize([5]).tickSubdivide(true);
+
+  var yAxis = d3.svg.axis()
+      .scale(y)
+      .tickFormat(d3.format(",.0f"))
+      .orient("left")
+      .tickSubdivide(true);
+
+  /*var xAxis_neg = d3.svg.axis()
+        .scale(x_neg)
+        //.tickValues([0,30,60,90,120,150,180,210,240,270,300])
+        .tickFormat(d3.format(",.0f"))
+        .orient("top");*/
+   
+  /*var svg = d3.select(reference).append("svg")
+      .attr("width", width)
+      .attr("height", 2 * height)
+      .on("click", function() { console.log("svg"); });*/
+   
+  svg.selectAll("rect-pos")
+      .data(histogram)
+    .enter().append("rect")
+      .attr("width", x.rangeBand())
+      .attr("x", function(d) { return x(d.x); })
+      .attr("y", function(d) { return height - y(d.y); })
+      .attr("height", function(d) { return y(d.y); })
+      .on("click", function(d,i){ 
+        console.log("upper rect, id:",i);
+        d3.event.stopPropagation();
+      });
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + (height)  + ")")
+      .call(xAxis);
+
+  /*svg.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(30,0)")
+      .call(yAxis);*/
+
+  svg.selectAll("rect-neg")
+      .data(neg_histogram)
+    .enter().append("rect")
+      .style("fill", "red")
+      .attr("width", x.rangeBand())
+      .attr("x", function(d) { return x(d.x); })
+      .attr("y", function(d) { return height + 20})
+      .attr("height", function(d) { return ny(d.y); })
+      .on("click", function(d,i){ 
+        console.log("lower rect, id:",i);
+        d3.event.stopPropagation();
+      });
+
+  //svg.selectAll("text.label")
+  svg.selectAll("rect-pos")
+      .data(histogram)
+      .enter()
+      .append("text")
+      .attr("class", "label")
+      .attr("dy", ".75em")
+      .attr("text-anchor", "middle")
+      .style("fill", "white")
+      .attr("x", function(d) { return x(d.x) + x.rangeBand()/2; })
+      //.attr("y", function(d) { return height - y(d.y); })
+      .attr("y", function(d) { return height - 10; })
+      .text(function(d) { return d.y; });
+
+  svg.selectAll("rect-neg")
+      .data(neg_histogram)
+      .enter()
+      .append("text")
+      .attr("class", "label")
+      .attr("dy", "1.0em")
+      .attr("text-anchor", "middle")
+      .style("fill", "white")
+      .attr("x", function(d) { return nx(d.x) + nx.rangeBand()/2; })
+      .attr("y", function(d) { return height + 20; })
+      //.attr("y", function(d) { return height + 20 + ny(d.y); })
+      .text(function(d) { return d.y; });
+   
+  svg.append("line")
+      .attr("x1", 0)
+      .attr("x2", width)
+      .attr("y1", height)
+      .attr("y2", height);  
+
+  svg.on("click", function(){
+    console.log("SVG clicked!");
+  });
+};
 
 if (Meteor.isClient) {
   Meteor.subscribe("tasks");
@@ -63,6 +220,8 @@ if (Meteor.isClient) {
     }
   });
 
+  //init_histogram();
+
   Template.hello.helpers({
     counter: function () {
       return Session.get('counter');
@@ -80,10 +239,21 @@ if (Meteor.isClient) {
   Template.inputArea1.events({
   'keyup': function(event) {
     //event.preventDefault();
-    console.log("KEYUP" + " " + event.which + " " + event.timeStamp);
-    if(event.which !== 9){
-      typingData.push(new keyData("keyup", event.which, event.timeStamp));
-      TypingDatabase1.insert(new keyData("keyup", event.which, event.timeStamp));
+    console.log("KEYUP" + " " + event.keyCode + " " + event.timeStamp);
+    if(event.keyCode !== 9){
+      typingData.push(new keyData("keyup", event.keyCode, event.timeStamp));
+      TypingDatabase1.insert(new keyData("keyup", event.keyCode, event.timeStamp));
+
+      if(event.keyCode in press_times){
+        //pull off first element of array with shift()
+        dwell_times.push(event.timeStamp - press_times[event.keyCode].shift());
+        console.log(dwell_times);
+        draw_histogram(dwell_times, dwell_times2);
+        //draw_histogram("div.histogram", dwell_times, dwell_times2);
+      }
+      else{
+        console.log("uh-oh, missing a keypress for key ",event.keyCode)
+      }
     }
   }
 });
@@ -91,10 +261,18 @@ if (Meteor.isClient) {
   Template.inputArea1.events({
   'keydown': function(event) {
     //event.preventDefault();
-    console.log("KEYDOWN" + " " + event.which + " " + event.timeStamp);
-    if(event.which !== 9){
-      typingData.push(new keyData("keydown", event.which, event.timeStamp));
-      TypingDatabase1.insert(new keyData("keydown", event.which, event.timeStamp));
+    console.log("KEYDOWN" + " " + event.keyCode + " " + event.timeStamp);
+    if(event.keyCode !== 9){
+      typingData.push(new keyData("keydown", event.keyCode, event.timeStamp));
+      TypingDatabase1.insert(new keyData("keydown", event.keyCode, event.timeStamp));
+
+      if(event.keyCode in press_times && press_times[event.keyCode].length != 0){
+        console.log("That's weird, key "+event.keyCode+" pressed twice before being released");
+      }
+      else{
+        press_times[event.keyCode] = [];
+        press_times[event.keyCode].push(event.timeStamp);
+      }
     }
   }
 });
@@ -106,6 +284,19 @@ if (Meteor.isClient) {
     if(event.which !== 9){
       typingData.push(new keyData("keyup", event.which, event.timeStamp));
       TypingDatabase2.insert(new keyData("keyup", event.which, event.timeStamp));
+
+      if(event.keyCode in press_times2){
+        //pull off first element of array with shift()
+        dwell_times2.push(event.timeStamp - press_times2[event.keyCode].shift());
+        console.log(dwell_times2);
+        draw_histogram(dwell_times, dwell_times2);
+        //console.log(d3.select("#histogramSVG").node().getBBox());
+        console.log(d3.select("#histogramSVG").node().getBoundingClientRect().width, d3.select("#histogramSVG").node().getBoundingClientRect().height);
+        //draw_histogram(div_name, dwell_times, dwell_times2);
+      }
+      else{
+        console.log("uh-oh, missing a keypress for key ",event.keyCode)
+      }
     }
   }
 });
@@ -119,6 +310,15 @@ if (Meteor.isClient) {
     if(event.which !== 9){
       typingData.push(new keyData("keydown", event.which, event.timeStamp));
       TypingDatabase2.insert(new keyData("keydown", event.which, event.timeStamp));
+
+      if(event.keyCode in press_times2 && press_times2[event.keyCode].length != 0){
+        console.log("That's weird, key "+event.keyCode+" pressed twice before being released");
+      }
+      else{
+        press_times2[event.keyCode] = [];
+        press_times2[event.keyCode].push(event.timeStamp);
+      }
+
     }
   }
 });
@@ -159,64 +359,9 @@ if (Meteor.isClient) {
   //trying to get reactive updating here (like http://mhyfritz.com/blog/2014/08/16/reactive-d3-meteor/)
   //Template.histogram.rendered = function(){
   Template.histogram.onRendered(function(){
-    //var self = this;
-
-    var histogramSVG = d3.select("#histogramSVG");
-
-    var drawGraph = function(plotData){
-      //var svgClick = d3.select("#clickArea");
-
-      console.log('Inside onRendered');
-      var localData = [];
-      var cursor = plotData.find();
-      cursor.forEach(function(item){
-        localData.push(item);
-        console.log(item);
-      })
-      console.log('localData: ',localData);
-
-      var barWidth = 40;
-      var width = (barWidth + 10) * localData.length;
-      var height = 200;
-
-      var x = d3.scale.linear().domain([0, localData.length]).range([0, width]);
-      var y = d3.scale.linear().domain([0, d3.max(localData, function(datum) { return datum.books; })]).
-        rangeRound([0, height]);
-
-      histogramSVG.selectAll("rect").
-          data(localData).
-          enter().
-          append("svg:rect").
-          attr("x", function(datum, index) { return x(index); }).
-          attr("y", function(datum) { return height - y(datum.books); }).
-          attr("height", function(datum) { return y(datum.books); }).
-          attr("width", barWidth).
-          attr("fill", "#2d578b").
-          on("click", function(d,i){ 
-            console.log("rect, id:",i," d:",d);
-            d3.event.stopPropagation();
-          });
-
-      histogramSVG.selectAll("rect").
-        data(localData).
-        transition().duration(300).
-        attr("y", function(datum) { return height - y(datum.books); }).
-        attr("height", function(datum) { return y(datum.books); });
-      };
-
-      histogramSVG.on("click", function(){
-        console.log("SVG clicked!");
-      });
-
-      plotDataCollection.find().observe({
-        //aha, we just need to call the function where we make the circles update themselves
-        //changed: _.partial(drawCircles, true) //does work (why?)
-        changed: function() {
-          console.log('calling drawGraph:');
-          drawGraph(plotDataCollection);
-        }
-      })
-    //})
+      init_histogram();
+    //draw_histogram_test();
+    //draw_histogram(dwell_times, dwell_times2);
   });
 
 }
@@ -249,15 +394,6 @@ if (Meteor.isServer) {
     });
 
   });
-
-  //Auto-update database to get reactive changes into the histogram
-  /*Meteor.setInterval(function () {
-      //console.log(plotDataCollection.findOne({year: 2009}));
-      //console.log(plotDataCollection.findOne({year: 2009})['_id']);
-      var num = plotDataCollection.findOne({year: 2009})['books'];
-
-      plotDataCollection.update({year: 2009}, {$set: {'books': num+1}});
-    }, 2000);*/
 
   Meteor.publish("tasks", function () {
     return Tasks.find();
